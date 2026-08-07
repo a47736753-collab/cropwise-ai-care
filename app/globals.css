@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  /* Typography */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Fraunces", ui-serif, Georgia, Cambria, "Times New Roman",
+    serif;
+
+  /* Cream / warm off-white surfaces */
+  --color-cream-50: #fdfcf8;
+  --color-cream-100: #faf7ef;
+  --color-cream-200: #f2ecdc;
+  --color-cream-300: #e8ddc3;
+
+  /* Forest green — primary brand palette (deep, agricultural green) */
+  --color-forest-50: #eef7ef;
+  --color-forest-100: #d9ecdc;
+  --color-forest-200: #b4d9bd;
+  --color-forest-300: #83bf93;
+  --color-forest-400: #4f9e68;
+  --color-forest-500: #2f814b;
+  --color-forest-600: #1f6738;
+  --color-forest-700: #17522e;
+  --color-forest-800: #114b27;
+  --color-forest-900: #0d3a1f;
+  --color-forest-950: #062012;
+
+  /* Leaf accent */
+  --color-leaf-300: #bde08c;
+  --color-leaf-400: #93c96a;
+  --color-leaf-500: #6fae47;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-cream-50 font-sans text-forest-950 antialiased;
+  }
+
+  section {
+    @apply scroll-mt-24;
+  }
+
+  ::selection {
+    @apply bg-forest-800 text-cream-50;
+  }
+}
