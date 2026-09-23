@@ -5,12 +5,14 @@
 
 export type Language = "en" | "hi" | "mr";
 
-export type Severity = "low" | "medium" | "high";
+export type Severity = "low" | "moderate" | "high" | "critical";
 
-export type DiagnosisStatus = "pending" | "completed" | "failed";
+export type DiagnosisStatus = "pending" | "analyzing" | "completed" | "failed";
 
 /** Structured output contract enforced on Gemini via responseSchema. */
 export interface DiagnosisResult {
+  /** Best-guess crop, e.g. "tomato". */
+  crop: string | null;
   /** Curated-library slug, or null when the leaf is healthy/unknown. */
   diseaseSlug: string | null;
   diseaseName: string;

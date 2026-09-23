@@ -1,19 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
-import { HistoryList } from "@/components/dashboard/history-list";
+import { HistoryList, type ScanRow } from "@/components/dashboard/history-list";
 
 export const dynamic = "force-dynamic";
 
 export default async function HistoryPage() {
   const supabase = await createClient();
 
-  const { data: diagnoses } = await supabase
-    .from("diagnoses")
-    .select("id, disease_name, confidence, severity, status, created_at")
+  const { data: scans } = await supabase
+    .from("scans")
+    .select("id, detected_label, confidence, severity, status, created_at")
     .order("created_at", { ascending: false });
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="animate-rise">
         <h1 className="font-serif text-3xl font-semibold tracking-tight text-forest-950 sm:text-4xl">
           Scan history
         </h1>
@@ -21,7 +21,7 @@ export default async function HistoryPage() {
           Every diagnosis you have run, newest first.
         </p>
       </div>
-      <HistoryList diagnoses={diagnoses ?? []} />
+      <HistoryList scans={(scans ?? []) as ScanRow[]} />
     </div>
   );
 }

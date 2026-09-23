@@ -1,21 +1,21 @@
 import { createClient } from "@/lib/supabase/server";
 import { UploadZone } from "@/components/dashboard/upload-zone";
-import { HistoryList } from "@/components/dashboard/history-list";
+import { HistoryList, type ScanRow } from "@/components/dashboard/history-list";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const { data: diagnoses } = await supabase
-    .from("diagnoses")
-    .select("id, disease_name, confidence, severity, status, image_url, created_at")
+  const { data: scans } = await supabase
+    .from("scans")
+    .select("id, detected_label, confidence, severity, status, created_at")
     .order("created_at", { ascending: false })
     .limit(5);
 
   return (
     <div className="space-y-10">
-      <div>
+      <div className="animate-rise">
         <h1 className="font-serif text-3xl font-semibold tracking-tight text-forest-950 sm:text-4xl">
           Scan a crop leaf
         </h1>
@@ -25,14 +25,16 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <UploadZone />
+      <div className="animate-rise" style={{ animationDelay: "80ms" }}>
+        <UploadZone />
+      </div>
 
-      <section>
+      <section className="animate-rise" style={{ animationDelay: "160ms" }}>
         <h2 className="font-serif text-2xl font-semibold tracking-tight text-forest-950">
           Recent scans
         </h2>
         <div className="mt-4">
-          <HistoryList diagnoses={diagnoses ?? []} />
+          <HistoryList scans={(scans ?? []) as ScanRow[]} />
         </div>
       </section>
     </div>
