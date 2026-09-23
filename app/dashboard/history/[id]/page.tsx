@@ -1,25 +1,19 @@
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Droplets, Sprout } from "lucide-react";
+import { ArrowLeft, Droplets, ShieldCheck, Sprout } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-interface TreatmentStep {
-  order: number;
-  title: string;
-  description: string;
-  completed?: boolean;
-}
-
 const severityStyles: Record<string, string> = {
   low: "border-forest-200 bg-forest-50 text-forest-700",
-  medium: "border-amber-200 bg-amber-50 text-amber-700",
-  high: "border-red-200 bg-red-50 text-red-700",
+  moderate: "border-amber-200 bg-amber-50 text-amber-700",
+  high: "border-orange-200 bg-orange-50 text-orange-700",
+  critical: "border-red-200 bg-red-50 text-red-700",
 };
 
-export default async function DiagnosisDetailPage({
+export default async function ScanDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -27,28 +21,42 @@ export default async function DiagnosisDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: diagnosis } = await supabase
-    .from("diagnoses")
+  const { data: scan } = await supabase
+    .from("scans")
     .select("*")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
-  if (!diagnosis) {
+  if (!scan) {
     notFound();
   }
 
-  const { data: plan } = await supabase
-    .from("treatment_plans")
-    .select("steps")
-    .eq("diagnosis_id", id)
-    .single();
+  const { data: steps } = await supabase
+    .from("treatment_steps")
+    .select("id, step_order, title, detail, completed_at")
+    .eq("scan_id", id)
+    .order("step_order", { ascending: true });
 
-  const steps: TreatmentStep[] = Array.isArray(plan?.steps)
-    ? (plan.steps as TreatmentStep[])
+  // The leaf-images bucket is private — mint a short-lived signed URL.
+  let imageUrl: string | null = null;
+  if (scan.image_path) {
+    const { data: signed } = await supabase.storage
+      .from("leaf-images")
+      .createSignedUrl(scan.image_path, 60 * 60);
+    imageUrl = signed?.signedUrl ?? null;
+  }
+
+  const prevention: string[] = Array.isArray(
+    (scan.ai_raw as { prevention?: unknown } | null)?.prevention
+  )
+    ? ((scan.ai_raw as { prevention: unknown[] }).prevention.map(String))
     : [];
+  const fertilizer =
+    (scan.ai_raw as { fertilizerAdvice?: string } | null)?.fertilizerAdvice ??
+    "";
 
   return (
-    <div className="space-y-6">
+    <div className="animate-rise space-y-8">
       <Link
         href="/dashboard/history"
         className="inline-flex items-center gap-2 text-sm font-medium text-forest-900/60 transition-colors hover:text-forest-800"
@@ -66,84 +74,107 @@ export default async function DiagnosisDetailPage({
             <div>
               <p className="text-xs font-medium text-forest-900/50">Diagnosis</p>
               <h1 className="font-serif text-2xl font-semibold text-forest-950">
-                {diagnosis.disease_name}
+                {scan.detected_label ?? "Unknown"}
               </h1>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-xs font-medium text-forest-900/50">Confidence</p>
-              <p className="font-serif text-2xl font-semibold text-forest-800">
-                {diagnosis.confidence !== null
-                  ? `${Math.round(diagnosis.confidence * 100)}%`
-                  : "—"}
-              </p>
-            </div>
-            {diagnosis.severity && (
+            {scan.confidence !== null && (
+              <div className="text-right">
+                <p className="text-xs font-medium text-forest-900/50">
+                  Confidence
+                </p>
+                <p className="font-serif text-2xl font-semibold text-forest-800">
+                  {Math.round(Number(scan.confidence) * 100)}%
+                </p>
+              </div>
+            )}
+            {scan.severity && (
               <span
                 className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${
-                  severityStyles[diagnosis.severity] ?? "bg-cream-100 text-forest-900"
+                  severityStyles[scan.severity] ?? severityStyles.moderate
                 }`}
               >
-                {diagnosis.severity}
+                {scan.severity}
               </span>
             )}
           </div>
         </div>
 
-        {diagnosis.image_url && (
-          <Image
-            src={diagnosis.image_url}
-            alt="Scanned leaf"
-            width={640}
-            height={480}
-            className="mt-6 h-64 w-full rounded-2xl object-cover sm:h-80"
-            unoptimized
-          />
+        {imageUrl && (
+          <div className="mt-6 overflow-hidden rounded-2xl">
+            <Image
+              src={imageUrl}
+              alt="Scanned leaf"
+              width={960}
+              height={640}
+              unoptimized
+              className="h-72 w-full object-cover"
+            />
+          </div>
         )}
 
-        <p className="mt-5 text-sm text-forest-900/50">
-          Scanned on{" "}
-          {new Date(diagnosis.created_at).toLocaleString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </p>
-      </div>
+        {scan.ai_summary && (
+          <p className="mt-6 rounded-2xl bg-cream-100/70 px-4 py-3 text-sm leading-relaxed text-forest-900/75">
+            {scan.ai_summary}
+          </p>
+        )}
 
-      {steps.length > 0 && (
-        <div className="rounded-3xl border border-forest-900/5 bg-white p-6 shadow-lg shadow-forest-900/10 sm:p-8">
-          <h2 className="flex items-center gap-2 font-serif text-xl font-semibold text-forest-950">
-            <Droplets className="h-5 w-5 text-forest-600" aria-hidden="true" />
-            Treatment plan
-          </h2>
-          <ol className="mt-5 space-y-3">
-            {steps.map((step) => (
-              <li
-                key={step.order}
-                className="flex items-start gap-3 rounded-2xl border border-forest-900/10 bg-white px-4 py-3"
-              >
-                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-forest-100 text-xs font-bold text-forest-700">
-                  {step.order}
-                </span>
-                <div>
+        {steps && steps.length > 0 && (
+          <div className="mt-8">
+            <h2 className="flex items-center gap-2 font-serif text-lg font-semibold text-forest-950">
+              <Droplets className="h-5 w-5 text-forest-600" aria-hidden="true" />
+              Treatment timeline
+            </h2>
+            <ol className="mt-4 space-y-3">
+              {steps.map((step) => (
+                <li
+                  key={step.id}
+                  className="rounded-2xl border border-forest-900/10 bg-white px-4 py-3"
+                >
                   <p className="text-sm font-semibold text-forest-950">
-                    {step.title}
+                    {step.step_order}. {step.title}
                   </p>
-                  {step.description && (
+                  {step.detail && (
                     <p className="mt-0.5 text-sm text-forest-900/60">
-                      {step.description}
+                      {step.detail}
                     </p>
                   )}
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {prevention.length > 0 && (
+          <div className="mt-8">
+            <h2 className="flex items-center gap-2 font-serif text-lg font-semibold text-forest-950">
+              <ShieldCheck
+                className="h-5 w-5 text-forest-600"
+                aria-hidden="true"
+              />
+              Prevention
+            </h2>
+            <ul className="mt-3 space-y-2">
+              {prevention.map((tip, i) => (
+                <li key={i} className="flex gap-2 text-sm text-forest-900/70">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-forest-500" />
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {fertilizer && (
+          <div className="mt-8 rounded-2xl bg-forest-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-forest-700">
+              Fertilizer advice
+            </p>
+            <p className="mt-1 text-sm text-forest-900/75">{fertilizer}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
